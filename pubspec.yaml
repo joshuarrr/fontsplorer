@@ -96,7 +96,7 @@ flutter:
     - family: Sniglet
       fonts:
         - asset: "assets/fonts/Sniglet Regular.otf"
-    - family: Starfox
+    - family: "Star Fox/Starwing"
       fonts:
         - asset: assets/fonts/Starfox.ttf
     - family: Tektur
@@ -114,3 +114,4 @@ flutter:
     - family: MuseoModerno
       fonts:
         - asset: assets/fonts/MuseoModerno[wght].ttf
+          weight: 400
