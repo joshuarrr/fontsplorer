@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:ui' as ui;
 
+// Use a root navigator key so modal sheets always open regardless of local context
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 // Domain model representing an entry of title + artist with style settings.
 class FontCardSpec {
   const FontCardSpec({
@@ -172,10 +175,13 @@ class FontSplorerApp extends StatefulWidget {
 class _FontSplorerAppState extends State<FontSplorerApp> {
   BrowserMode _mode = BrowserMode.card;
   int? _selectedIndex; // For dimming non-selected items when the sheet is open
+  bool _showSettings = false;
+  double _scale = 1.0; // 0.7 – 1.3
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'fontsplorer',
       theme: ThemeData(
@@ -192,6 +198,7 @@ class _FontSplorerAppState extends State<FontSplorerApp> {
               child: _mode == BrowserMode.list
                   ? _FontListView(
                       specs: kSpecs,
+                      scale: _scale,
                       selectedIndex: _selectedIndex,
                       onTapSpec: (int index, FontCardSpec spec) async {
                         setState(() => _selectedIndex = index);
@@ -201,6 +208,7 @@ class _FontSplorerAppState extends State<FontSplorerApp> {
                     )
                   : _FontCardPager(
                       specs: kSpecs,
+                      scale: _scale,
                       selectedIndex: _selectedIndex,
                       onTapSpec: (int index, FontCardSpec spec) async {
                         setState(() => _selectedIndex = index);
@@ -215,9 +223,25 @@ class _FontSplorerAppState extends State<FontSplorerApp> {
               alignment: Alignment.bottomCenter,
               child: SafeArea(
                 minimum: const EdgeInsets.only(bottom: 16, left: 24, right: 24),
-                child: _ModeSegmentedControl(
-                  mode: _mode,
-                  onChanged: (BrowserMode m) => setState(() => _mode = m),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_showSettings)
+                      _ScaleSlider(
+                        value: _scale,
+                        onChanged: (double v) => setState(() => _scale = v),
+                      ),
+                    _ModeSegmentedControl(
+                      mode: _mode,
+                      showSettings: _showSettings,
+                      onChanged: (BrowserMode m) => setState(() {
+                        _mode = m;
+                        _showSettings = false;
+                      }),
+                      onToggleSettings: () =>
+                          setState(() => _showSettings = !_showSettings),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -229,9 +253,16 @@ class _FontSplorerAppState extends State<FontSplorerApp> {
 }
 
 class _ModeSegmentedControl extends StatelessWidget {
-  const _ModeSegmentedControl({required this.mode, required this.onChanged});
+  const _ModeSegmentedControl({
+    required this.mode,
+    required this.onChanged,
+    required this.onToggleSettings,
+    required this.showSettings,
+  });
   final BrowserMode mode;
   final ValueChanged<BrowserMode> onChanged;
+  final VoidCallback onToggleSettings;
+  final bool showSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -245,24 +276,91 @@ class _ModeSegmentedControl extends StatelessWidget {
             borderRadius: BorderRadius.circular(28),
             border: Border.all(color: Colors.white24, width: 1.2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          child: CupertinoSlidingSegmentedControl<BrowserMode>(
-            backgroundColor: Colors.transparent,
-            thumbColor: Colors.white24,
-            groupValue: mode,
-            onValueChanged: (BrowserMode? value) {
-              if (value != null) onChanged(value);
-            },
-            children: const <BrowserMode, Widget>{
-              BrowserMode.list: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                child: Icon(Icons.view_list, size: 18, color: Colors.white),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _IconTab(
+                icon: Icons.view_list,
+                selected: mode == BrowserMode.list,
+                onTap: () => onChanged(BrowserMode.list),
               ),
-              BrowserMode.card: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                child: Icon(Icons.view_agenda, size: 18, color: Colors.white),
+              const SizedBox(width: 18),
+              _IconTab(
+                icon: Icons.view_agenda,
+                selected: mode == BrowserMode.card,
+                onTap: () => onChanged(BrowserMode.card),
               ),
-            },
+              const SizedBox(width: 18),
+              _IconTab(
+                icon: Icons.tune, // sliders icon
+                selected: showSettings,
+                onTap: onToggleSettings,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _IconTab extends StatelessWidget {
+  const _IconTab({
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = selected ? Colors.white : Colors.white54;
+    return GestureDetector(
+      onTap: onTap,
+      child: Icon(icon, size: 20, color: color),
+    );
+  }
+}
+
+class _ScaleSlider extends StatelessWidget {
+  const _ScaleSlider({required this.value, required this.onChanged});
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0x0DFFFFFF),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white24, width: 1.2),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.remove, color: Colors.white54, size: 18),
+                SizedBox(
+                  width: 180,
+                  child: CupertinoSlider(
+                    min: 0.7,
+                    max: 1.3,
+                    value: value.clamp(0.7, 1.3),
+                    onChanged: onChanged,
+                  ),
+                ),
+                const Icon(Icons.add, color: Colors.white54, size: 18),
+              ],
+            ),
           ),
         ),
       ),
@@ -362,10 +460,12 @@ class _FontCard extends StatelessWidget {
 class _FontListView extends StatelessWidget {
   const _FontListView({
     required this.specs,
+    required this.scale,
     this.selectedIndex,
     this.onTapSpec,
   });
   final List<FontCardSpec> specs;
+  final double scale;
   final int? selectedIndex;
   final void Function(int index, FontCardSpec spec)? onTapSpec;
 
@@ -380,9 +480,12 @@ class _FontListView extends StatelessWidget {
         final bool isDimmed = selectedIndex != null && selectedIndex != index;
         return Opacity(
           opacity: isDimmed ? 0.2 : 1.0,
-          child: _FontCard(
-            spec: spec,
-            onTap: () => onTapSpec?.call(index, spec),
+          child: Transform.scale(
+            scale: scale,
+            child: _FontCard(
+              spec: spec,
+              onTap: () => onTapSpec?.call(index, spec),
+            ),
           ),
         );
       },
@@ -393,10 +496,12 @@ class _FontListView extends StatelessWidget {
 class _FontCardPager extends StatelessWidget {
   const _FontCardPager({
     required this.specs,
+    required this.scale,
     this.selectedIndex,
     this.onTapSpec,
   });
   final List<FontCardSpec> specs;
+  final double scale;
   final int? selectedIndex;
   final void Function(int index, FontCardSpec spec)? onTapSpec;
 
@@ -411,9 +516,12 @@ class _FontCardPager extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Opacity(
             opacity: isDimmed ? 0.25 : 1.0,
-            child: _FontCard(
-              spec: specs[index],
-              onTap: () => onTapSpec?.call(index, specs[index]),
+            child: Transform.scale(
+              scale: scale,
+              child: _FontCard(
+                spec: specs[index],
+                onTap: () => onTapSpec?.call(index, specs[index]),
+              ),
             ),
           ),
         );
@@ -424,7 +532,7 @@ class _FontCardPager extends StatelessWidget {
 
 Future<void> _showSpecSheet(BuildContext context, FontCardSpec spec) async {
   return showModalBottomSheet<void>(
-    context: context,
+    context: rootNavigatorKey.currentContext ?? context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     showDragHandle: true,
