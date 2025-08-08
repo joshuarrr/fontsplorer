@@ -194,6 +194,18 @@ class _FontSplorerAppState extends State<FontSplorerApp> {
       home: Scaffold(
         body: Stack(
           children: [
+            // App background gradient
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFF1A131F), Color(0xFF271C2E)],
+                  ),
+                ),
+              ),
+            ),
             Positioned.fill(
               child: _mode == BrowserMode.list
                   ? _FontListView(
@@ -381,7 +393,7 @@ class _TopScrim extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFF131016), Color(0x00131016)],
+              colors: [Color(0xFF1A131F), Color(0x001A131F)],
             ),
           ),
         ),
@@ -403,7 +415,7 @@ class _BottomScrim extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
-              colors: [Color(0xFF131016), Color(0x00131016)],
+              colors: [Color(0xFF271C2E), Color(0x00271C2E)],
             ),
           ),
         ),
@@ -472,7 +484,7 @@ class _FontListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+      padding: const EdgeInsets.fromLTRB(24, 200, 24, 200),
       itemCount: specs.length,
       separatorBuilder: (_, __) => const SizedBox(height: 48),
       itemBuilder: (context, index) {
@@ -534,56 +546,81 @@ Future<void> _showSpecSheet(BuildContext context, FontCardSpec spec) async {
   return showModalBottomSheet<void>(
     context: rootNavigatorKey.currentContext ?? context,
     backgroundColor: Colors.transparent,
+    barrierColor: Colors.transparent,
     isScrollControlled: true,
-    showDragHandle: true,
+    showDragHandle: false,
     builder: (BuildContext ctx) {
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(18),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xCC131016),
-                  border: Border.all(color: Colors.white24, width: 1),
+      return FractionallySizedBox(
+        heightFactor: 0.4,
+        alignment: Alignment.bottomCenter,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(44),
+            topRight: Radius.circular(44),
+          ),
+          child: Container(
+            color: const Color(0xFF1A131F),
+            padding: const EdgeInsets.fromLTRB(22, 14, 22, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: Colors.white70,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
                 ),
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Font details',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleMedium?.copyWith(color: Colors.white70),
-                    ),
-                    const SizedBox(height: 12),
-                    _SpecRow(label: 'Family', value: spec.family),
-                    _SpecRow(
-                      label: 'Size',
-                      value: '${spec.titleSize.toStringAsFixed(0)} px',
-                    ),
-                    _SpecRow(
-                      label: 'Letter spacing',
-                      value: '${spec.letterSpacing.toStringAsFixed(2)} px',
-                    ),
-                    _SpecRow(
-                      label: 'Line height',
-                      value: '${(spec.lineHeight * 100).toStringAsFixed(0)}%',
-                    ),
-                    const SizedBox(height: 6),
-                  ],
+                const SizedBox(height: 16),
+                Text(
+                  spec.family,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'MuseoModerno',
+                    fontSize: 36,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w400,
+                    fontVariations: <ui.FontVariation>[
+                      ui.FontVariation('wght', 400),
+                    ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: 24),
+                _SpecRow(label: 'size', value: _px(spec.titleSize)),
+                _SpecRow(
+                  label: 'letter-spacing',
+                  value: _px(spec.letterSpacing),
+                ),
+                _SpecRow(
+                  label: 'line-height',
+                  value: _percent(spec.lineHeight),
+                ),
+                const Spacer(),
+              ],
             ),
           ),
         ),
       );
     },
   );
+}
+
+String _px(double value) {
+  final String sign = value < 0 ? '-' : '';
+  final double absVal = value.abs();
+  // show whole numbers without decimals, otherwise 2 decimals
+  final String digits = absVal == absVal.roundToDouble()
+      ? absVal.toStringAsFixed(0)
+      : absVal.toStringAsFixed(2);
+  return '$sign${digits}px';
+}
+
+String _percent(double fraction) {
+  return '${(fraction * 100).toStringAsFixed(0)}%';
 }
 
 class _SpecRow extends StatelessWidget {
@@ -599,12 +636,29 @@ class _SpecRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 140,
-            child: Text(label, style: const TextStyle(color: Colors.white60)),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'MuseoModerno',
+                color: Colors.white,
+                fontWeight: FontWeight.w400,
+                fontVariations: <ui.FontVariation>[
+                  ui.FontVariation('wght', 400),
+                ],
+              ),
+            ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(
+                fontFamily: 'MuseoModerno',
+                color: Colors.white,
+                fontWeight: FontWeight.w400,
+                fontVariations: <ui.FontVariation>[
+                  ui.FontVariation('wght', 400),
+                ],
+              ),
               textAlign: TextAlign.right,
             ),
           ),
